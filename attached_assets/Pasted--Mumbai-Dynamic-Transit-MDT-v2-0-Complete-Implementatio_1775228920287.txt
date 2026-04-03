@@ -1,0 +1,1417 @@
+# 🚇 Mumbai Dynamic Transit (MDT) v2.0 — Complete Implementation Plan
+### *Hackathon Edition — "Built for Mumbai, Proven in Crisis"*
+
+---
+
+## 📋 Table of Contents
+
+1. [Executive Summary](#executive-summary)
+2. [Winning Strategy](#winning-strategy)
+3. [System Architecture](#system-architecture)
+4. [Feature Specifications](#feature-specifications)
+5. [Data Layer — Transit Graph](#data-layer--transit-graph)
+6. [Routing Engine — Dijkstra + Multi-Modal](#routing-engine)
+7. [MDT Sathi AI Engine](#mdt-sathi-ai-engine)
+8. [Offline-Ready Architecture](#offline-ready-architecture)
+9. [UI/UX Design System](#uiux-design-system)
+10. [Component Specifications](#component-specifications)
+11. [Simulation Engine](#simulation-engine)
+12. [Winning Hackathon Features](#-winning-hackathon-features-additions)
+13. [File Structure (Full)](#full-file-structure)
+14. [Tech Stack](#tech-stack)
+15. [Build & Run Guide](#build--run-guide)
+16. [Demo Script](#demo-script--winning-flow)
+17. [Judging Criteria Mapping](#judging-criteria-mapping)
+
+---
+
+## Executive Summary
+
+MDT v2.0 is a real-time, AI-powered smart transit planner for Mumbai's chaotic multi-modal network. It combines:
+
+- **Graph-based multi-modal routing** (Local Train, Metro, Mono, Bus, Auto, Ferry)
+- **MDT Sathi** — a hyper-local AI commuter assistant who speaks like a Mumbaikar
+- **Crisis simulation** — judges can see the platform respond live to rain/strikes/block
+- **Offline-first architecture** — works even when venue Wi-Fi collapses
+- **7+ winning differentiators** not in the original plan
+
+**Target Impact:** Serve 8+ million daily Mumbai commuters who lose an average of 47 minutes/day to unplanned disruptions.
+
+---
+
+## Winning Strategy
+
+### Why MDT Wins
+
+| Dimension | Most Hackathon Projects | MDT v2.0 |
+|---|---|---|
+| Demo | Static mockup or fake data | Live routing + live crisis simulation |
+| AI Use | Generic LLM chatbot | Personality-driven, context-aware, Marathi-speaking assistant |
+| Problem Scope | Abstract "smart city" | Solves a specific daily problem for 8M people |
+| Tech Depth | API wrappers | Dijkstra + graph theory + localStorage caching |
+| Resilience | Breaks under bad Wi-Fi | Fully offline after first load |
+| Emotional Hook | None | Sathi feels like a friend, not software |
+
+### The 3 Moments That Win Judging
+
+1. **The WOW moment** — Type CSMT → Kalyan. Route appears in <500ms.
+2. **The CRISIS moment** — Toggle "Central Line Mega Block". Watch Sathi panic-helpfully re-route in real time.
+3. **The OFFLINE moment** — "We're going to disable Wi-Fi now." App still works. Judges are stunned.
+
+---
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      MDT v2.0 Frontend                       │
+│                                                             │
+│  ┌──────────────┐   ┌──────────────┐   ┌────────────────┐  │
+│  │  Map Layer   │   │  Sathi Panel │   │  Simulator     │  │
+│  │  (Leaflet)   │   │  (AI Chat)   │   │  (Controls)    │  │
+│  └──────┬───────┘   └──────┬───────┘   └───────┬────────┘  │
+│         │                  │                    │           │
+│  ┌──────▼──────────────────▼────────────────────▼────────┐  │
+│  │                  App State (Zustand)                   │  │
+│  │   routeState | disruptions | sathiMessages | offline  │  │
+│  └──────┬─────────────────────────────────────────────┬──┘  │
+│         │                                             │      │
+│  ┌──────▼───────────┐                   ┌────────────▼───┐  │
+│  │  Routing Engine  │                   │  Sathi Engine  │  │
+│  │  (Dijkstra +     │                   │  (NLG + Local  │  │
+│  │   Multi-Modal)   │                   │   Knowledge)   │  │
+│  └──────┬───────────┘                   └────────────────┘  │
+│         │                                                    │
+│  ┌──────▼────────────────────────────────────────────────┐  │
+│  │              Mumbai Transit Graph                      │  │
+│  │         (Nodes: Stations | Edges: Routes)              │  │
+│  │              ↓ Cached to localStorage                  │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+```
+User Input (Origin → Destination)
+    ↓
+Graph Lookup (check localStorage first)
+    ↓
+Apply Active Disruptions (filter blocked edges)
+    ↓
+Dijkstra Algorithm (with multi-modal penalties)
+    ↓
+Route Object (segments, time, cost, CO₂)
+    ↓
+Sathi Engine (generate localized commentary)
+    ↓
+Map Render (Leaflet polylines per mode)
+    ↓
+UI Update (Route card + Sathi message + Stats)
+```
+
+---
+
+## Feature Specifications
+
+### Core Features (MVP)
+
+| Feature | Description | Priority |
+|---|---|---|
+| Station Search | Autocomplete with 80+ Mumbai stations | P0 |
+| Multi-modal Route | Combines Train + Metro + Bus + Walk | P0 |
+| Disruption Simulation | 5 crisis scenarios toggleable | P0 |
+| MDT Sathi | AI commentary on route decisions | P0 |
+| Offline Mode | Full app function post first load | P0 |
+| Live Map | Leaflet dark map with route overlay | P0 |
+
+### Winning Extra Features (differentiators)
+
+| Feature | Description | Wow Factor |
+|---|---|---|
+| Crowd Density Heatmap | Shows overcrowding at stations live | ⭐⭐⭐ |
+| Carbon Score | CO₂ saved vs auto-rickshaw | ⭐⭐⭐ |
+| Cost Comparison | Train ₹12 vs Cab ₹340 | ⭐⭐ |
+| Marathi Language Toggle | Full UI + Sathi in Marathi | ⭐⭐⭐ |
+| Commute Streaks | Gamified eco-commuting (for pitch) | ⭐⭐ |
+| Emergency SOS Mode | Route to nearest police/hospital | ⭐⭐⭐ |
+| Monsoon Score | Route safety rating in rain | ⭐⭐⭐ |
+
+---
+
+## Data Layer — Transit Graph
+
+### File: `/src/data/mumbaiGraph.js`
+
+#### Node Schema
+
+```javascript
+/**
+ * @typedef {Object} TransitNode
+ * @property {string} id           - Unique station ID (e.g., "CSMT", "ANDHERI")
+ * @property {string} name         - Display name
+ * @property {string} marathi      - Marathi name for language toggle
+ * @property {number[]} coords     - [lat, lng] for map rendering
+ * @property {string[]} modes      - Modes available: ["local", "metro", "mono", "bus"]
+ * @property {string} zone         - Mumbai zone: "south" | "central" | "western" | "harbour"
+ * @property {number} crowdFactor  - 0.0 (empty) to 1.0 (jam-packed)
+ * @property {boolean} floodProne  - Floods during monsoon
+ * @property {string} landmark     - Nearby landmark (for Sathi context)
+ */
+
+const NODES = {
+  CSMT: {
+    id: "CSMT",
+    name: "Chhatrapati Shivaji Maharaj Terminus",
+    marathi: "छत्रपती शिवाजी महाराज टर्मिनस",
+    coords: [18.9402, 72.8356],
+    modes: ["local", "bus"],
+    zone: "south",
+    crowdFactor: 0.9,
+    floodProne: false,
+    landmark: "UNESCO Heritage building"
+  },
+  DADAR: {
+    id: "DADAR",
+    name: "Dadar",
+    marathi: "दादर",
+    coords: [19.0187, 72.8439],
+    modes: ["local", "bus"],
+    zone: "central",
+    crowdFactor: 0.95,
+    floodProne: false,
+    landmark: "Shivaji Park nearby"
+  },
+  KURLA: {
+    id: "KURLA",
+    name: "Kurla",
+    marathi: "कुर्ला",
+    coords: [19.0659, 72.8793],
+    modes: ["local", "bus"],
+    zone: "central",
+    crowdFactor: 0.85,
+    floodProne: true,  // Notorious for flooding
+    landmark: "Phoenix MarketCity"
+  },
+  ANDHERI: {
+    id: "ANDHERI",
+    name: "Andheri",
+    marathi: "अंधेरी",
+    coords: [19.1197, 72.8464],
+    modes: ["local", "metro", "bus"],
+    zone: "western",
+    crowdFactor: 0.88,
+    floodProne: false,
+    landmark: "Airport nearby"
+  },
+  THANE: {
+    id: "THANE",
+    name: "Thane",
+    marathi: "ठाणे",
+    coords: [19.1815, 72.9510],
+    modes: ["local", "bus"],
+    zone: "central",
+    crowdFactor: 0.82,
+    floodProne: false,
+    landmark: "Upvan Lake"
+  },
+  KALYAN: {
+    id: "KALYAN",
+    name: "Kalyan",
+    marathi: "कल्याण",
+    coords: [19.2437, 73.1355],
+    modes: ["local", "bus"],
+    zone: "central",
+    crowdFactor: 0.75,
+    floodProne: false,
+    landmark: "Kalyan Fort"
+  },
+  // ... 70+ more nodes (Borivali, Virar, Churchgate, Panvel, Vashi, BKC, etc.)
+};
+```
+
+#### Edge Schema
+
+```javascript
+/**
+ * @typedef {Object} TransitEdge
+ * @property {string} from         - Source node ID
+ * @property {string} to           - Target node ID
+ * @property {string} mode         - "local_central" | "local_western" | "local_harbour" |
+ *                                   "metro1" | "metro2a" | "metro7" | "monorail" |
+ *                                   "bus" | "walk" | "ferry"
+ * @property {number} duration     - Minutes (off-peak)
+ * @property {number} peakFactor   - Multiplier for peak hours (1.0 = no change)
+ * @property {number} cost         - ₹ fare
+ * @property {number} co2          - grams CO₂ equivalent
+ * @property {number[]} waypoints  - [[lat,lng], ...] for map rendering
+ * @property {boolean} active      - Can be toggled false by simulator
+ */
+
+const EDGES = [
+  {
+    from: "CSMT", to: "DADAR",
+    mode: "local_central",
+    duration: 12,
+    peakFactor: 1.4,
+    cost: 10,
+    co2: 8,
+    waypoints: [[18.9402, 72.8356], [18.9788, 72.8375], [19.0187, 72.8439]],
+    active: true
+  },
+  {
+    from: "DADAR", to: "KURLA",
+    mode: "local_central",
+    duration: 10,
+    peakFactor: 1.5,
+    cost: 10,
+    co2: 6,
+    waypoints: [...],
+    active: true
+  },
+  // ... 200+ edges covering all lines
+];
+```
+
+#### Graph Initialization & Caching
+
+```javascript
+// /src/data/mumbaiGraph.js
+
+const GRAPH_CACHE_KEY = "mdt_transit_graph_v2";
+const CACHE_VERSION = "2.0.1";
+
+export function initializeOfflineData() {
+  const cached = localStorage.getItem(GRAPH_CACHE_KEY);
+  
+  if (cached) {
+    const parsed = JSON.parse(cached);
+    if (parsed.version === CACHE_VERSION) {
+      console.log("✅ MDT: Offline graph loaded from cache");
+      return parsed.data;
+    }
+  }
+  
+  // First load: save to cache
+  const graphData = { nodes: NODES, edges: EDGES };
+  localStorage.setItem(GRAPH_CACHE_KEY, JSON.stringify({
+    version: CACHE_VERSION,
+    timestamp: Date.now(),
+    data: graphData
+  }));
+  
+  console.log("📶 MDT: Graph cached for offline use");
+  return graphData;
+}
+
+export function buildAdjacencyList(edges) {
+  const adj = {};
+  edges.filter(e => e.active).forEach(edge => {
+    if (!adj[edge.from]) adj[edge.from] = [];
+    if (!adj[edge.to]) adj[edge.to] = [];
+    adj[edge.from].push(edge);
+    // Edges are bidirectional for most modes
+    if (edge.mode !== "ferry") {
+      adj[edge.to].push({ ...edge, from: edge.to, to: edge.from });
+    }
+  });
+  return adj;
+}
+```
+
+---
+
+## Routing Engine
+
+### File: `/src/logic/router.js`
+
+#### Multi-Modal Dijkstra
+
+```javascript
+/**
+ * Multi-Modal Dijkstra with:
+ * - Mode transfer penalties (e.g., switching Train → Metro costs 5 mins)
+ * - Peak hour multipliers
+ * - Disruption-aware edge filtering
+ * - Up to 3 alternative routes
+ */
+
+const TRANSFER_PENALTY = {
+  same: 0,
+  local_to_metro: 7,    // Walk to metro station
+  local_to_bus: 5,
+  metro_to_bus: 3,
+  local_to_walk: 2,
+  any_to_ferry: 10,
+};
+
+const MODE_COLORS = {
+  local_central: "#E74C3C",   // Central Line Red
+  local_western: "#3498DB",   // Western Line Blue
+  local_harbour:  "#27AE60",  // Harbour Line Green
+  metro1: "#00BCD4",          // Metro Cyan
+  metro2a: "#9C27B0",         // Metro Purple
+  metro7: "#FF9800",          // Metro Orange
+  monorail: "#FF5722",        // Mono Red
+  bus: "#F39C12",             // BEST Bus Yellow
+  walk: "#95A5A6",            // Walk Grey
+  ferry: "#1A237E",           // Ferry Navy
+};
+
+export function dijkstra({ graph, origin, destination, preferences }) {
+  const { nodes, adjList } = graph;
+  const { isPeakHour, optimizeFor, avoidModes = [] } = preferences;
+
+  // Priority queue: [cost, nodeId, path, mode]
+  const pq = new MinHeap();
+  const dist = {};
+  const prev = {};
+  
+  Object.keys(nodes).forEach(id => { dist[id] = Infinity; });
+  dist[origin] = 0;
+  pq.push({ cost: 0, node: origin, path: [], currentMode: null });
+
+  while (!pq.isEmpty()) {
+    const { cost, node, path, currentMode } = pq.pop();
+
+    if (node === destination) {
+      return buildRouteResult(path, nodes);
+    }
+
+    if (cost > dist[node]) continue;
+
+    const neighbors = adjList[node] || [];
+    
+    for (const edge of neighbors) {
+      if (avoidModes.includes(edge.mode)) continue;
+      if (!edge.active) continue;
+
+      // Calculate edge cost based on optimization preference
+      let edgeCost = optimizeFor === "time"
+        ? edge.duration * (isPeakHour ? edge.peakFactor : 1.0)
+        : optimizeFor === "cost"
+        ? edge.cost
+        : edge.co2;
+
+      // Add transfer penalty when switching modes
+      const transferKey = currentMode
+        ? `${currentMode.split('_')[0]}_to_${edge.mode.split('_')[0]}`
+        : null;
+      const penalty = transferKey ? (TRANSFER_PENALTY[transferKey] || 0) : 0;
+
+      const newCost = cost + edgeCost + penalty;
+
+      if (newCost < dist[edge.to]) {
+        dist[edge.to] = newCost;
+        pq.push({
+          cost: newCost,
+          node: edge.to,
+          path: [...path, edge],
+          currentMode: edge.mode
+        });
+      }
+    }
+  }
+
+  return null; // No route found
+}
+
+function buildRouteResult(path, nodes) {
+  let totalTime = 0, totalCost = 0, totalCO2 = 0;
+  const segments = [];
+
+  path.forEach((edge, i) => {
+    totalTime += edge.duration;
+    totalCost += edge.cost;
+    totalCO2 += edge.co2;
+    
+    segments.push({
+      from: nodes[edge.from],
+      to: nodes[edge.to],
+      mode: edge.mode,
+      modeLabel: getModeLabel(edge.mode),
+      color: MODE_COLORS[edge.mode],
+      duration: edge.duration,
+      cost: edge.cost,
+      waypoints: edge.waypoints,
+      isTransfer: i > 0 && path[i-1].mode !== edge.mode
+    });
+  });
+
+  return {
+    segments,
+    totalTime,       // minutes
+    totalCost,       // rupees
+    totalCO2,        // grams
+    co2Saved: calculateCO2Saved(totalCO2, path), // vs auto-rickshaw
+    monsoonSafe: isMonsoonSafe(path),
+    crowdLevel: getRouteCrowdLevel(path),
+  };
+}
+```
+
+#### Alternative Routes
+
+```javascript
+// Get top 3 routes with different modal profiles
+export function getAlternativeRoutes(graph, origin, destination, disruptions) {
+  const strategies = [
+    { label: "Fastest", optimizeFor: "time" },
+    { label: "Cheapest", optimizeFor: "cost" },
+    { label: "Greenest 🌱", optimizeFor: "co2" },
+  ];
+
+  return strategies.map(strategy => ({
+    ...strategy,
+    route: dijkstra({ graph, origin, destination, preferences: strategy })
+  })).filter(r => r.route !== null);
+}
+```
+
+---
+
+## MDT Sathi AI Engine
+
+### File: `/src/logic/sathiEngine.js`
+
+Sathi is the emotional core of MDT. She's not a chatbot — she's a hardcoded NLG (Natural Language Generation) engine with deep Mumbai knowledge, powered optionally by the Anthropic Claude API for richer responses.
+
+#### Sathi's Personality Matrix
+
+```javascript
+const SATHI_PERSONA = {
+  name: "Sathi",
+  avatar: "/assets/sathi-avatar.svg",
+  language: "hinglish", // "english" | "marathi" | "hinglish"
+  
+  traits: [
+    "Knows Mumbai like the back of her hand",
+    "Uses local slang naturally (yaar, arre, re)",
+    "Always finds a way — never gives up on routing",
+    "Honest about delays — doesn't sugarcoat",
+    "Celebrates when you beat the traffic",
+  ],
+  
+  catchphrases: [
+    "Tension nahi lene ka, Sathi hai na!",
+    "Mumbai ki train late, but Sathi never late! 😄",
+    "Arre, adjust kar lega Mumbai!",
+  ]
+};
+```
+
+#### Message Templates (Offline NLG — works without API)
+
+```javascript
+const MESSAGE_TEMPLATES = {
+  
+  // Normal route found
+  routeFound: (route) => [
+    `Found your route! ${route.totalTime} mins via ${summarizeModes(route)}. ₹${route.totalCost} total. Let's go! 🚇`,
+    `Chalte hain! ${route.totalTime} mins, ₹${route.totalCost}. Fastest option during this hour. 💪`,
+    `${route.totalTime} mins door hai tum. ${getModeEmoji(route.segments[0].mode)} + ${getModeEmoji(route.segments.at(-1).mode)} combo best hai aaj.`,
+  ],
+
+  // Disruption detected, rerouting
+  disruptionReroute: (disruption, newRoute) => [
+    `Arre yaar! ${disruption.name} chal raha hai. Don't worry — switched to ${summarizeModes(newRoute)}. Saves ${disruption.timeLoss} mins vs waiting! 🔄`,
+    `${disruption.emoji} ${disruption.sathiWarning}. Maine Metro route pakad liya. ${newRoute.totalTime} mins mein pahunchoge. 💪`,
+    `Typical Mumbai! ${disruption.name} again. Sathi says — Metro + Bus is your friend today. Stay dry! 🌧️`,
+  ],
+  
+  // Flood warning
+  floodWarning: (station) => [
+    `⚠️ Sathi Alert: ${station.name} area mein paani bhar gaya. Platform 2 pe mat jao. ${station.floodAlternative} se niklo.`,
+    `Kurla-Sion belt mein pani bhara hua hai. Central line slow. Metro Line 2A better hai abhi.`,
+  ],
+  
+  // No route found
+  noRoute: (origin, dest) => [
+    `Arre, direct route nahi mila ${origin} to ${dest}. Thoda walk karoge? Ya bus se jayein?`,
+    `Sathi puzzled hai! Try doing ${origin} → Dadar first, then we'll figure out the rest.`,
+  ],
+  
+  // Crowd warning
+  crowdWarning: (station) => [
+    `${station.name} pe bohot bheed hai abhi (${Math.round(station.crowdFactor * 100)}% full). 10 min wait karo ya next train lo.`,
+    `Dadar pe dhakka lag sakta hai. Rush hour tha na. Khud ko sambhalna!`,
+  ],
+  
+  // Eco celebration
+  ecoWin: (co2Saved) => [
+    `🌱 Green hero! Tune aaj ${co2Saved}g CO₂ bachaya vs auto-rickshaw. Mumbai proud hai tujh pe!`,
+    `Planet-friendly commute! ${co2Saved}g CO₂ saved. Sathi approves! 🌿`,
+  ],
+  
+  // Morning greeting
+  greeting: () => {
+    const hour = new Date().getHours();
+    if (hour < 9) return "Good morning! Peak hour start ho gaya. Sathi help karega! 🌅";
+    if (hour < 12) return "Arre, late ho gaya kya? Chinta mat karo, Sathi fastest route dega! ⚡";
+    if (hour < 17) return "Dopahar mein commute? Off-peak, routes clear hain! 😊";
+    return "Shaam ho gayi! Return journey plan karte hain? 🌆";
+  }
+};
+```
+
+#### Optional: Claude API Enhancement
+
+```javascript
+// /src/logic/sathiEngine.js — Claude API Mode
+// Falls back to template mode if API unavailable (offline)
+
+export async function getSathiMessageEnhanced(context) {
+  // Try API first
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 150,
+        system: `You are MDT Sathi, a friendly Mumbai local train commuter assistant.
+          Personality: Helpful, uses Hinglish (Hindi+English mix), knows Mumbai deeply.
+          Always under 2 sentences. Use 1 emoji max. Reference real Mumbai places.
+          Never say you're an AI. You're Sathi, a fellow Mumbaikar.`,
+        messages: [{
+          role: "user",
+          content: buildSathiPrompt(context)
+        }]
+      })
+    });
+    const data = await response.json();
+    return data.content[0].text;
+  } catch (err) {
+    // Graceful offline fallback to templates
+    console.log("Sathi: Using offline templates (API unavailable)");
+    return getTemplateMessage(context);
+  }
+}
+
+function buildSathiPrompt(context) {
+  const { eventType, disruption, route, station } = context;
+  
+  const prompts = {
+    routeFound: `User wants to go from ${route.origin} to ${route.destination}. 
+      Route: ${summarizeModes(route)}, ${route.totalTime} mins, ₹${route.totalCost}.
+      Give a friendly, local-feeling response as Sathi.`,
+    
+    disruptionDetected: `There's a ${disruption.type} at ${disruption.location}.
+      We rerouted via ${summarizeModes(route)} which saves ${disruption.timeSaved} mins.
+      As Sathi, explain this dramatically but helpfully in Hinglish.`,
+    
+    crowdWarning: `${station.name} is at ${Math.round(station.crowdFactor * 100)}% capacity right now.
+      Warn the user in Sathi's casual, friendly style.`
+  };
+  
+  return prompts[eventType] || "Say something helpful about Mumbai commuting.";
+}
+```
+
+---
+
+## Offline-Ready Architecture
+
+### File: `/src/hooks/useOffline.js`
+
+```javascript
+import { useState, useEffect } from 'react';
+
+const CACHE_KEYS = {
+  GRAPH: "mdt_transit_graph_v2",
+  SEARCH_STATE: "mdt_search_state",
+  DISRUPTIONS: "mdt_active_disruptions",
+  SATHI_LOG: "mdt_sathi_log",
+};
+
+export function useOffline() {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [offlineReady, setOfflineReady] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Check if we have cached data
+    const cached = localStorage.getItem(CACHE_KEYS.GRAPH);
+    setOfflineReady(!!cached);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const persistState = (key, data) => {
+    try {
+      localStorage.setItem(CACHE_KEYS[key], JSON.stringify(data));
+    } catch (e) {
+      console.warn("MDT: localStorage full, clearing old cache");
+      localStorage.removeItem(CACHE_KEYS.SATHI_LOG); // Clear least critical
+      localStorage.setItem(CACHE_KEYS[key], JSON.stringify(data));
+    }
+  };
+
+  const restoreState = (key) => {
+    const stored = localStorage.getItem(CACHE_KEYS[key]);
+    return stored ? JSON.parse(stored) : null;
+  };
+
+  return { isOnline, offlineReady, persistState, restoreState };
+}
+```
+
+### Service Worker (PWA Bonus)
+
+```javascript
+// /public/sw.js — Cache-first strategy for all static assets
+
+const CACHE_NAME = "mdt-v2-static";
+const STATIC_ASSETS = ["/", "/index.html", "/src/main.jsx", "/assets/"];
+
+self.addEventListener("install", (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+  );
+});
+
+self.addEventListener("fetch", (e) => {
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request))
+  );
+});
+```
+
+---
+
+## UI/UX Design System
+
+### File: `/src/styles/index.css`
+
+```css
+/* ===== MDT v2.0 Design System — Mumbai Theme ===== */
+
+:root {
+  /* === Brand Colors === */
+  --local-blue: #1565C0;        /* Central/Western Line blue */
+  --best-red: #C62828;          /* BEST Bus signature red */
+  --metro-cyan: #00BCD4;        /* Metro Line accent */
+  --mono-orange: #FF5722;       /* Monorail orange */
+  --ferry-navy: #1A237E;        /* Ferry/Harbour navy */
+  --sathi-purple: #7B1FA2;      /* MDT Sathi brand color */
+  --eco-green: #2E7D32;         /* Carbon savings green */
+  --warning-amber: #F57F17;     /* Disruption warnings */
+  
+  /* === Mumbai Night Theme === */
+  --bg-primary: #0A0E1A;        /* Dark Mumbai night sky */
+  --bg-secondary: #111827;      /* Card backgrounds */
+  --bg-glass: rgba(255,255,255,0.06); /* Glassmorphism base */
+  --border-glass: rgba(255,255,255,0.1);
+  
+  /* === Typography === */
+  --font-primary: 'Inter', sans-serif;
+  --font-display: 'Poppins', sans-serif;
+  
+  /* === Spacing === */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 48px;
+  
+  /* === Animations === */
+  --transition-fast: 150ms ease;
+  --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glassmorphism card base */
+.glass-card {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+}
+
+/* Mode badge colors */
+.mode-badge {
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Live pulse animation for active disruptions */
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 8px rgba(198, 40, 40, 0); }
+}
+
+.disruption-active { animation: pulse-red 2s infinite; }
+
+/* Sathi message slide-in */
+@keyframes sathi-appear {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.sathi-message { animation: sathi-appear 0.4s var(--transition-smooth); }
+
+/* Route line drawing animation */
+@keyframes route-draw {
+  from { stroke-dashoffset: 1000; }
+  to   { stroke-dashoffset: 0; }
+}
+```
+
+---
+
+## Component Specifications
+
+### `MapComponent.jsx`
+
+**Responsibility:** Renders the Leaflet map with dark tiles, station markers, and animated route polylines.
+
+```jsx
+// /src/components/MapComponent.jsx
+import { MapContainer, TileLayer, Polyline, CircleMarker, Popup } from "react-leaflet";
+import { useMDTStore } from "../hooks/useRouter";
+
+const DARK_TILES = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+
+export default function MapComponent() {
+  const { activeRoute, disruptions, stations, hoveredStation } = useMDTStore();
+  
+  return (
+    <MapContainer
+      center={[19.076, 72.877]}   // Mumbai center
+      zoom={12}
+      style={{ height: "100%", width: "100%" }}
+      zoomControl={false}
+    >
+      <TileLayer url={DARK_TILES} attribution="© CartoDB" />
+      
+      {/* Route Segments — different color per mode */}
+      {activeRoute?.segments.map((seg, i) => (
+        <Polyline
+          key={i}
+          positions={seg.waypoints}
+          pathOptions={{
+            color: seg.color,
+            weight: 4,
+            opacity: 0.9,
+            dashArray: seg.mode === "walk" ? "6, 8" : null,
+          }}
+          className="route-line-animated"
+        />
+      ))}
+      
+      {/* Disruption Markers */}
+      {disruptions.filter(d => d.active).map(d => (
+        <CircleMarker
+          key={d.id}
+          center={d.coords}
+          radius={16}
+          pathOptions={{ color: "#E74C3C", fillColor: "#E74C3C", fillOpacity: 0.3 }}
+          className="disruption-active"
+        >
+          <Popup><b>⚠️ {d.name}</b><br/>{d.description}</Popup>
+        </CircleMarker>
+      ))}
+      
+      {/* Crowd Density Overlay — winning feature */}
+      <CrowdHeatmapLayer stations={stations} />
+      
+      {/* Origin / Destination pins */}
+      {activeRoute && (
+        <>
+          <PinMarker position={activeRoute.origin.coords} type="origin" />
+          <PinMarker position={activeRoute.destination.coords} type="destination" />
+        </>
+      )}
+    </MapContainer>
+  );
+}
+```
+
+### `SathiPanel.jsx`
+
+**Responsibility:** Floating AI chat panel showing Sathi's messages with typing animation.
+
+```jsx
+// /src/components/SathiPanel.jsx
+
+export default function SathiPanel() {
+  const { sathiMessages, sathiTyping } = useMDTStore();
+  const latestMessage = sathiMessages.at(-1);
+
+  return (
+    <div className="sathi-panel glass-card">
+      <div className="sathi-header">
+        <img src="/assets/sathi-avatar.svg" alt="Sathi" className="sathi-avatar" />
+        <div>
+          <span className="sathi-name">MDT Sathi</span>
+          <span className="sathi-status">
+            {sathiTyping ? "typing..." : "● Online"}
+          </span>
+        </div>
+      </div>
+
+      <div className="sathi-messages">
+        {sathiMessages.slice(-3).map((msg, i) => (
+          <div key={i} className={`sathi-bubble sathi-message ${msg.type}`}>
+            {msg.text}
+          </div>
+        ))}
+        {sathiTyping && <TypingIndicator />}
+      </div>
+
+      {/* Quick action chips */}
+      <div className="sathi-chips">
+        {["Why this route?", "Any faster?", "Monsoon safe?"].map(q => (
+          <button key={q} className="chip" onClick={() => askSathi(q)}>{q}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+### `Simulator.jsx`
+
+**Responsibility:** Hackathon crisis control panel. Toggle disruptions live.
+
+```jsx
+// /src/components/Simulator.jsx
+
+const SCENARIOS = [
+  {
+    id: "central_megablock",
+    label: "🚧 Central Line Mega Block",
+    description: "Thane–CSMT suspended",
+    affectedEdges: ["CSMT-DADAR", "DADAR-KURLA", "KURLA-THANE"],
+    sathiWarning: "Mega block detected on Central Line! Switching to Metro Line 2A + Bus.",
+    emoji: "🚧",
+    severity: "critical"
+  },
+  {
+    id: "monsoon_flood",
+    label: "🌧️ Monsoon Flooding",
+    description: "Kurla & Sion stations flooded",
+    affectedEdges: ["KURLA-DADAR", "KURLA-SION"],
+    affectedNodes: ["KURLA", "SION"],
+    sathiWarning: "Pani bhar gaya Kurla mein! Avoid platform 1-3. Going via Andheri Metro.",
+    emoji: "🌧️",
+    severity: "high"
+  },
+  {
+    id: "bus_strike",
+    label: "✊ BEST Bus Strike",
+    description: "All BEST bus services halted",
+    affectedModes: ["bus"],
+    sathiWarning: "BEST strike aaj. No buses. Using train + auto-rickshaw last mile.",
+    emoji: "✊",
+    severity: "medium"
+  },
+  {
+    id: "harbour_signal",
+    label: "⚡ Harbour Line Signal Failure",
+    description: "Harbour line delays 45+ mins",
+    affectedEdges: ["CSMT-KURLA-harbour"],
+    sathiWarning: "Signal failure on Harbour Line. Via Western Line is only 8 mins extra.",
+    emoji: "⚡",
+    severity: "high"
+  },
+  {
+    id: "western_overcrowd",
+    label: "😰 Western Line Overcrowding",
+    description: "Peak-hour crush at Andheri/Dadar",
+    affectedNodes: ["ANDHERI", "DADAR"],
+    crowdBoost: 0.95,
+    sathiWarning: "Dadar-Andheri stretch mein bohot bheed! Metro 1 se jao, thoda zyada walk hoga.",
+    emoji: "😰",
+    severity: "low"
+  }
+];
+
+export default function Simulator() {
+  const { toggleDisruption, activeDisruptions } = useMDTStore();
+
+  return (
+    <div className="simulator-panel glass-card">
+      <h3 className="simulator-title">⚡ Crisis Simulator</h3>
+      <p className="simulator-subtitle">Toggle real Mumbai disruption scenarios</p>
+
+      {SCENARIOS.map(scenario => {
+        const isActive = activeDisruptions.includes(scenario.id);
+        return (
+          <button
+            key={scenario.id}
+            className={`scenario-btn severity-${scenario.severity} ${isActive ? "active" : ""}`}
+            onClick={() => toggleDisruption(scenario)}
+          >
+            <span className="scenario-emoji">{scenario.emoji}</span>
+            <div>
+              <div className="scenario-label">{scenario.label}</div>
+              <div className="scenario-desc">{scenario.description}</div>
+            </div>
+            <div className={`toggle ${isActive ? "on" : "off"}`} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+```
+
+---
+
+## Simulation Engine
+
+### File: `/src/hooks/useSimulator.js`
+
+```javascript
+import { create } from 'zustand';
+import { dijkstra, getAlternativeRoutes } from '../logic/router';
+import { getSathiMessage } from '../logic/sathiEngine';
+
+export const useMDTStore = create((set, get) => ({
+  // State
+  graph: null,
+  origin: null,
+  destination: null,
+  activeRoute: null,
+  alternativeRoutes: [],
+  activeDisruptions: [],
+  sathiMessages: [],
+  sathiTyping: false,
+  language: "hinglish",
+  showCrowdHeatmap: false,
+  carbonScore: 0,
+
+  // Actions
+  setOrigin: (station) => set({ origin: station }),
+  setDestination: (station) => set({ destination: station }),
+
+  planRoute: async () => {
+    const { graph, origin, destination, activeDisruptions } = get();
+    if (!origin || !destination) return;
+
+    set({ sathiTyping: true });
+
+    // Apply disruptions to graph
+    const modifiedGraph = applyDisruptions(graph, activeDisruptions);
+    
+    const routes = getAlternativeRoutes(modifiedGraph, origin.id, destination.id);
+    const bestRoute = routes[0]?.route;
+
+    if (bestRoute) {
+      const msg = await getSathiMessage({
+        eventType: "routeFound",
+        route: { ...bestRoute, origin, destination }
+      });
+
+      set({
+        activeRoute: bestRoute,
+        alternativeRoutes: routes.slice(1),
+        sathiTyping: false,
+        sathiMessages: [...get().sathiMessages, { text: msg, type: "success" }],
+        carbonScore: get().carbonScore + (bestRoute.co2Saved || 0)
+      });
+    }
+  },
+
+  toggleDisruption: async (scenario) => {
+    const { activeDisruptions, origin, destination } = get();
+    const isActive = activeDisruptions.includes(scenario.id);
+    const updated = isActive
+      ? activeDisruptions.filter(id => id !== scenario.id)
+      : [...activeDisruptions, scenario.id];
+
+    set({ activeDisruptions: updated, sathiTyping: true });
+
+    // Wait for dramatic effect
+    await delay(800);
+
+    // Add Sathi warning
+    const warning = { text: scenario.sathiWarning, type: "warning" };
+    set({ sathiMessages: [...get().sathiMessages, warning] });
+
+    // Auto re-route if we have an active route
+    if (origin && destination) {
+      await get().planRoute();
+    }
+
+    set({ sathiTyping: false });
+
+    // Persist disruption state for offline recovery
+    localStorage.setItem("mdt_active_disruptions", JSON.stringify(updated));
+  }
+}));
+```
+
+---
+
+## 🏆 Winning Hackathon Features (Additions)
+
+These 7 features go beyond the original plan and directly target hackathon judging criteria: **Innovation, Impact, Technical Depth, Presentation, Feasibility**.
+
+---
+
+### 🌧️ Feature 1: Mumbai Monsoon Score
+
+**What it does:** Every route gets a Monsoon Safety Score (0-100) based on:
+- Whether it passes through flood-prone stations (Kurla, Sion, Masjid)
+- Whether it avoids open platforms during rain
+- Metro/covered routes score higher
+
+**Implementation:**
+```javascript
+// /src/logic/monsoonScore.js
+export function calculateMonsoonScore(route, nodes) {
+  let score = 100;
+  route.segments.forEach(seg => {
+    const node = nodes[seg.to.id];
+    if (node.floodProne) score -= 25;
+    if (seg.mode.includes("bus")) score -= 10; // Buses slow in floods
+    if (seg.mode.includes("metro")) score += 5; // Metro elevated = safe
+  });
+  return Math.max(0, Math.min(100, score));
+}
+```
+
+**Judge Appeal:** Mumbai-specific, deeply relevant, shows local knowledge.
+
+---
+
+### 🌱 Feature 2: Carbon Footprint Tracker + Leaderboard
+
+**What it does:**
+- Every green route saves CO₂ vs equivalent auto-rickshaw
+- Running total "Carbon Wallet" saved by the user today
+- City-wide leaderboard (simulated) showing Mumbai's collective saving
+
+**UI:**
+```
+🌱 Carbon Wallet: 1,240g saved today
+Mumbai saves: 4.2 tons/day with MDT
+```
+
+**Judge Appeal:** Sustainability angle — ESG buzzword, judges love it.
+
+---
+
+### 🗣️ Feature 3: Full Marathi Language Toggle
+
+**What it does:**
+- Complete UI translation to Marathi with one click
+- Sathi speaks in fluent Marathi: *"CSMT ते कल्याण - मेट्रो + लोकल सर्वोत्तम आहे!"*
+- Station names shown in Devanagari
+
+**Implementation:** i18n config + Marathi translation file with all UI strings + Sathi messages.
+
+**Judge Appeal:** Accessibility, digital inclusion, local language — powerful for Indian hackathons.
+
+---
+
+### 🚨 Feature 4: Emergency SOS Routing
+
+**What it does:**
+- One-tap "Emergency" button routes user to nearest:
+  - Hospital (KEM, Hinduja, Breach Candy)
+  - Police Station
+  - Fire Station
+- Uses current GPS location (or simulated pin)
+
+**Implementation:**
+```javascript
+const EMERGENCY_NODES = {
+  hospitals: [
+    { name: "KEM Hospital", coords: [19.0044, 72.8414], id: "KEM" },
+    { name: "Hinduja Hospital", coords: [19.0597, 72.8358], id: "HINDUJA" },
+  ],
+  police: [...],
+  fire: [...]
+};
+
+export function getEmergencyRoute(currentLocation, type) {
+  const targets = EMERGENCY_NODES[type];
+  // Find nearest + route
+}
+```
+
+**Judge Appeal:** Real-world utility, safety impact, different from all other transit apps.
+
+---
+
+### 📊 Feature 5: Live Cost Comparison Widget
+
+**What it does:**
+A side-by-side panel showing:
+
+| Mode | Time | Cost | CO₂ |
+|---|---|---|---|
+| 🚇 Train + Metro | 38 min | ₹28 | 45g |
+| 🚕 Cab (Ola) | 52 min | ₹380 | 890g |
+| 🛵 Auto | 45 min | ₹180 | 420g |
+| 🚶 Walk | 3h 20m | ₹0 | 0g |
+
+**Judge Appeal:** Immediate, tangible value. Every Mumbai commuter has this question daily.
+
+---
+
+### 🎮 Feature 6: Commute Streak Gamification
+
+**What it does:**
+- Tracks "green commute days" (days user chose train over cab)
+- Badge system: Rookie → Local Train Hero → Mumbai Legend
+- Shareable card for social media
+
+```
+🏆 You're a "Dadar Veteran"!
+7-day green streak | Saved ₹1,847 this week
+Share your streak →
+```
+
+**Judge Appeal:** Behavior change, engagement, virality potential — great for pitching to VCs.
+
+---
+
+### 🔍 Feature 7: Predictive Delay Intelligence
+
+**What it does:**
+Based on time of day + day of week patterns, MDT predicts:
+- "This route is 78% likely to be delayed by 15+ mins"
+- Sathi warns proactively before user starts journey
+
+```javascript
+// /src/logic/predictiveDelay.js
+const DELAY_PATTERNS = {
+  "local_central": {
+    "weekday_morning": { delayProb: 0.78, avgDelay: 15 },  // Rush hour
+    "weekday_evening": { delayProb: 0.71, avgDelay: 12 },
+    "weekend": { delayProb: 0.22, avgDelay: 4 },
+    "monsoon_season": { delayProb: 0.92, avgDelay: 35 },
+  }
+};
+```
+
+**Judge Appeal:** Predictive AI, data intelligence, shows ML thinking even without real ML.
+
+---
+
+## Full File Structure
+
+```
+mdt-v2/
+├── public/
+│   ├── sw.js                        # Service Worker (PWA)
+│   ├── manifest.json                # PWA manifest
+│   └── assets/
+│       ├── sathi-avatar.svg         # Sathi character art
+│       ├── logo.svg                 # MDT logo
+│       └── mode-icons/              # Train, Metro, Bus icons
+│
+├── src/
+│   ├── assets/
+│   │   └── mumbai-transit-icons.svg
+│   │
+│   ├── components/
+│   │   ├── MapComponent.jsx         # Leaflet map + overlays
+│   │   ├── SathiPanel.jsx           # AI chat panel
+│   │   ├── Simulator.jsx            # Crisis control panel
+│   │   ├── SearchBar.jsx            # Station autocomplete
+│   │   ├── RouteCard.jsx            # Route summary + alternatives
+│   │   ├── DisruptionTicker.jsx     # Scrolling disruption news
+│   │   ├── CrowdHeatmap.jsx         # Crowd density overlay
+│   │   ├── CarbonWallet.jsx         # CO₂ tracker widget
+│   │   ├── CostComparison.jsx       # Multi-mode cost table
+│   │   ├── MonsoonBadge.jsx         # Route safety badge
+│   │   ├── EmergencyButton.jsx      # SOS routing
+│   │   ├── LanguageToggle.jsx       # EN / मराठी / Hinglish
+│   │   ├── OfflineIndicator.jsx     # Wi-Fi status banner
+│   │   └── CommuteStreak.jsx        # Gamification widget
+│   │
+│   ├── data/
+│   │   ├── mumbaiGraph.js           # Full node + edge definitions
+│   │   ├── emergencyNodes.js        # Hospitals, police stations
+│   │   ├── translations/
+│   │   │   ├── en.js
+│   │   │   ├── mr.js                # Marathi
+│   │   │   └── hi.js                # Hinglish
+│   │   └── delayPatterns.js         # Predictive delay data
+│   │
+│   ├── hooks/
+│   │   ├── useRouter.js             # Zustand store + route planning
+│   │   ├── useSimulator.js          # Disruption management
+│   │   ├── useOffline.js            # Network + localStorage hooks
+│   │   ├── useGeolocation.js        # GPS for emergency routing
+│   │   └── useCarbonTracker.js      # Eco score persistence
+│   │
+│   ├── logic/
+│   │   ├── router.js                # Multi-modal Dijkstra
+│   │   ├── sathiEngine.js           # NLG + Claude API integration
+│   │   ├── monsoonScore.js          # Flood safety scoring
+│   │   ├── costComparison.js        # Multi-mode cost calculator
+│   │   ├── predictiveDelay.js       # Pattern-based delay prediction
+│   │   ├── emergencyRouter.js       # SOS route finder
+│   │   └── minHeap.js               # Priority queue for Dijkstra
+│   │
+│   ├── styles/
+│   │   ├── index.css                # Design tokens + base styles
+│   │   ├── map.css                  # Leaflet overrides
+│   │   ├── sathi.css                # Sathi panel animations
+│   │   └── simulator.css            # Crisis panel styles
+│   │
+│   ├── App.jsx                      # Root layout + routing
+│   └── main.jsx                     # Entry point + PWA register
+│
+├── package.json
+├── vite.config.js
+└── README.md
+```
+
+---
+
+## Tech Stack
+
+| Category | Technology | Why |
+|---|---|---|
+| Framework | React 18 + Vite | Fast HMR, optimal bundle size |
+| Map | Leaflet + React-Leaflet | Open-source, no API key needed for demo |
+| State | Zustand | Simple, minimal boilerplate, persists easily |
+| Styling | CSS Modules + CSS Variables | No Tailwind dependency, custom theme control |
+| Routing Algorithm | Custom Dijkstra (MinHeap) | Shows algorithmic depth to judges |
+| AI (online) | Anthropic Claude API | Sonnet 4, Sathi enhanced mode |
+| AI (offline) | Template NLG | Guaranteed demo reliability |
+| Offline | localStorage + Service Worker | Survives Wi-Fi death |
+| Language | i18next | Marathi/Hindi/English toggle |
+| Icons | Lucide React | Lightweight, consistent |
+| Build | Vite | <30s build, optimized chunks |
+
+---
+
+## Build & Run Guide
+
+```bash
+# 1. Clone & install
+git clone https://github.com/your-team/mdt-v2
+cd mdt-v2
+npm install
+
+# 2. Environment (optional — app works without this)
+cp .env.example .env.local
+# Add VITE_ANTHROPIC_KEY=your_key (for enhanced Sathi mode)
+# Without key: offline template mode activates automatically
+
+# 3. Development
+npm run dev
+# → Opens at http://localhost:5173
+
+# 4. Production build
+npm run build
+npm run preview
+
+# 5. First load: Open DevTools → Application → localStorage
+# Verify "mdt_transit_graph_v2" key exists after any search
+```
+
+### Environment Variables
+
+```bash
+# .env.local
+VITE_ANTHROPIC_KEY=sk-ant-...     # Optional: enables Claude Sathi mode
+VITE_APP_VERSION=2.0.1
+VITE_DEMO_MODE=true               # Pre-loads CSMT→Kalyan scenario
+```
+
+---
+
+## Demo Script — "Winning Flow"
+
+### 60-Second Judge Demo
+
+**[0:00 — Setup]**
+> "Mumbai has 8 million daily commuters. Every disruption costs each of them 20-45 minutes. MDT fixes that."
+
+**[0:10 — Search]**
+> Type "CSMT" in origin, "Kalyan" in destination, click Plan.
+> *Route appears: Local Central Line, 72 mins, ₹25*
+> "Sathi confirms: fastest route, off-peak, low crowd at 3PM."
+
+**[0:20 — Carbon]**
+> Point to Carbon Widget.
+> "Saved 840g CO₂ vs taking an Ola. That's real impact."
+
+**[0:30 — THE CRISIS]**
+> Click "🚧 Central Line Mega Block"
+> *Map flickers. Route redraws. Sathi panel lights up.*
+> Read Sathi's message aloud: *"Mega block at Thane! Switching to Metro 2A + Bus. 8 mins extra but you'll make it!"*
+> "Re-route happened in 180ms. No manual intervention."
+
+**[0:45 — OFFLINE]**
+> Open DevTools → Network → Offline
+> Clear search. Re-search CSMT → Kalyan.
+> *Route appears instantly.*
+> "Wi-Fi is dead. App still works. Because the graph is cached locally."
+
+**[0:55 — Close]**
+> "MDT Sathi isn't just an app — it's the fellow Mumbaikar who always knows the way."
+
+---
+
+## Judging Criteria Mapping
+
+| Criterion | MDT v2.0 Feature | Evidence |
+|---|---|---|
+| **Innovation** | Sathi NLG with Mumbai personality | No other transit app has a hyper-local persona |
+| **Technical Depth** | Custom Dijkstra + MinHeap + Graph theory | Show the algorithm live |
+| **Real-World Impact** | 8M daily commuters, specific Mumbai problem | Carbon savings, cost comparison |
+| **Demo Quality** | Crisis simulation + offline mode | Judges can interact live |
+| **Feasibility** | All data is hardcoded — zero API dependency | Works day 1 without infrastructure |
+| **Presentation** | Sathi's personality + Marathi toggle | Emotional connection, inclusivity |
+| **Sustainability** | Carbon Wallet, CO₂ tracking | ESG alignment |
+| **Accessibility** | Marathi language, high contrast UI | Inclusive design |
+
+---
+
+## Appendix A — Priority Build Order
+
+If time is limited, build in this order:
+
+1. ✅ `mumbaiGraph.js` — Data foundation (3 hours)
+2. ✅ `router.js` — Dijkstra + multi-modal (4 hours)
+3. ✅ `App.jsx` + `SearchBar.jsx` — Basic UI shell (2 hours)
+4. ✅ `MapComponent.jsx` — Map + route display (3 hours)
+5. ✅ `sathiEngine.js` (templates only) — Core AI persona (2 hours)
+6. ✅ `Simulator.jsx` — Crisis scenarios (2 hours)
+7. ✅ `useOffline.js` — localStorage caching (1 hour)
+8. 🟡 `CostComparison.jsx` — Winning differentiator (1 hour)
+9. 🟡 `CarbonWallet.jsx` — Sustainability angle (1 hour)
+10. 🟡 Marathi translations (1 hour)
+11. 🔵 Emergency SOS routing (2 hours)
+12. 🔵 Predictive delay (2 hours)
+
+**Total MVP (1-7): ~17 hours | Full submission (1-12): ~25 hours**
+
+---
+
+## Appendix B — Common Pitfalls & Fixes
+
+| Problem | Fix |
+|---|---|
+| Leaflet SSR error | Import with `dynamic(() => import(...), { ssr: false })` |
+| localStorage quota exceeded | Clear Sathi log (least critical cache key) |
+| Dijkstra infinite loop | Always check `cost > dist[node]` before processing |
+| Sathi API timeout during demo | 2-second timeout → auto-fallback to templates |
+| Map not re-rendering on route change | Use `key={routeId}` on Polyline components |
+| Marathi fonts not loading | Preload Noto Sans Devanagari in `<head>` |
+
+---
+
+*MDT v2.0 — Built for Mumbai. Proven in Crisis. Powered by Sathi.* 🚇

@@ -25,3 +25,25 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+## Artifacts
+
+### Mumbai Dynamic Transit (MDT) v2.0 — `artifacts/mdt-app`
+- **Type**: React + Vite SPA (no backend, fully offline-capable)
+- **Preview path**: `/`
+- **Stack**: React, Zustand (state), Leaflet (map), TypeScript
+- **Key features**:
+  - Graph-based multi-modal Dijkstra routing (Central, Western, Harbour, Metro, Monorail, Ferry, Bus)
+  - 50+ Mumbai stations with real coordinates
+  - MDT Sathi AI assistant with Mumbai-dialect commentary (English + Marathi toggle)
+  - Crisis Simulator with 5 real disruption scenarios
+  - Live map via Leaflet (CartoDB Dark theme) with route polylines
+  - CO2 savings, cost comparison vs. cab, crowd density indicators
+  - Monsoon safety scores, offline-first (localStorage graph cache)
+- **Files**:
+  - `src/data/mumbaiGraph.ts` — Transit graph nodes + edges
+  - `src/logic/router.ts` — Multi-modal Dijkstra algorithm
+  - `src/logic/sathi.ts` — AI commentary engine + disruption scenarios
+  - `src/store/useStore.ts` — Zustand state management
+  - `src/pages/Home.tsx` — Main app page
+  - `src/components/` — MapView, RouteCard, SathiPanel, DisruptionPanel, StationSearch, StatsBar
