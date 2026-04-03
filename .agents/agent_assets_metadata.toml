@@ -1,0 +1,20 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "mfIp-3HAUP4ulI4FVWeI8"
+uri = "file://artifacts/mockup-sandbox/public/images/sathi-avatar.png"
+type = "image"
+title = "friendly robot avatar sathi"
+
+[[generated]]
+id = "9Glv_P-SErfwIyOYxD-az"
+uri = "file://artifacts/mockup-sandbox/public/images/mumbai-map-thumb.png"
+type = "image"
+title = "mumbai transit map thumbnail"
+
+[[generated]]
+id = "wwIfowQcQIsLS9QUvkPIK"
+uri = "file://artifacts/mockup-sandbox/public/images/mdt-eco-map.png"
+type = "image"
+title = "soft terrain style dark green map"
